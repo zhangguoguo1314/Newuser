@@ -1,7 +1,7 @@
 module github.com/QuantumNous/new-api
 
 // +heroku goVersion go1.18
-go 1.21
+go 1.26
 
 require (
 	github.com/Calcium-Ion/go-epay v0.0.4

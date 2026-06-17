@@ -1,43 +1,56 @@
-# 使用 Go 1.21 作为构建环境
-FROM golang:1.21-alpine AS builder
+# 基于 NewAPI 官方 Dockerfile 修改，适配 Hugging Face Spaces
+# 多阶段构建：前端(bun) -> 后端(Go) -> 运行(Alpine)
 
-# 安装构建依赖
-RUN apk add --no-cache git gcc musl-dev sqlite-dev
+# ============ 阶段1：构建 Default 前端 ============
+FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 AS builder
 
-# 设置工作目录
-WORKDIR /app
+WORKDIR /build/web
+COPY web/package.json web/bun.lock ./
+COPY web/default/package.json ./default/package.json
+COPY web/classic/package.json ./classic/package.json
+RUN bun install --frozen-lockfile
+COPY ./web/default ./default
+COPY ./VERSION /build/VERSION
+RUN cd default && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build
 
-# 复制 go.mod 和 go.sum
-COPY go.mod go.sum ./
+# ============ 阶段2：构建 Classic 前端 ============
+FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 AS builder-classic
 
-# 下载依赖
+WORKDIR /build/web
+COPY web/package.json web/bun.lock ./
+COPY web/default/package.json ./default/package.json
+COPY web/classic/package.json ./classic/package.json
+RUN bun install --frozen-lockfile
+COPY ./web/classic ./classic
+COPY ./VERSION /build/VERSION
+RUN cd classic && VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build
+
+# ============ 阶段3：编译 Go 后端 ============
+FROM golang:1.26.1-alpine AS builder2
+ENV GO111MODULE=on CGO_ENABLED=0
+ENV GOOS=linux GOARCH=amd64
+
+WORKDIR /build
+
+ADD go.mod go.sum ./
 RUN go mod download
 
-# 复制源代码
 COPY . .
+COPY --from=builder /build/web/default/dist ./web/default/dist
+COPY --from=builder-classic /build/web/classic/dist ./web/classic/dist
+RUN go build -ldflags "-s -w" -o new-api
 
-# 编译（禁用 CGO，静态链接）
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o new-api main.go
-
-# 使用轻量级镜像运行
+# ============ 阶段4：运行 ============
 FROM alpine:latest
 
-# 安装 ca-certificates 用于 HTTPS
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /root/
+COPY --from=builder2 /build/new-api .
 
-# 从 builder 复制编译好的二进制文件
-COPY --from=builder /app/new-api .
-
-# 设置时区
 ENV TZ=Asia/Shanghai
-
-# Hugging Face Spaces 要求暴露 7860 端口
 ENV PORT=7860
 
-# 暴露端口
 EXPOSE 7860
 
-# 启动命令
-CMD ["./new-api"]
+ENTRYPOINT ["/root/new-api"]
