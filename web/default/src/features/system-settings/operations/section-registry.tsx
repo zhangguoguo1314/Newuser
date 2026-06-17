@@ -23,6 +23,7 @@ import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
+import { DataBackupSection } from './data-backup-section'
 import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
@@ -150,6 +151,11 @@ const OPERATIONS_SECTIONS = [
         startTime={startTime}
       />
     ),
+  },
+  {
+    id: 'data-backup',
+    titleKey: 'Data Backup & Restore',
+    build: (_settings: OperationsSettings) => <DataBackupSection />,
   },
 ] as const
 
