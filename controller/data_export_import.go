@@ -74,7 +74,9 @@ func ExportAllData(c *gin.Context) {
 		return
 	}
 
-	userObj, err := model.GetUserByName(user)
+	// 使用 ValidateAndFill 验证并获取用户信息
+	userObj := model.User{Username: user}
+	err = userObj.ValidateAndFill()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -217,7 +219,9 @@ func ImportAllData(c *gin.Context) {
 		return
 	}
 
-	userObj, err := model.GetUserByName(user)
+	// 使用 ValidateAndFill 验证并获取用户信息
+	userObj := model.User{Username: user}
+	err = userObj.ValidateAndFill()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
