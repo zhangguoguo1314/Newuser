@@ -20,6 +20,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Download, Upload } from 'lucide-react'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SettingsSection } from '../components/settings-section'
@@ -34,15 +35,10 @@ export function DataBackupSection() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const response = await fetch('/api/data-export/export', {
-        method: 'GET',
-        credentials: 'include',
+      const response = await api.get('/api/data-export/export', {
+        responseType: 'blob',
       })
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || '导出失败')
-      }
-      const blob = await response.blob()
+      const blob = new Blob([response.data], { type: 'application/json' })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -53,7 +49,8 @@ export function DataBackupSection() {
       document.body.removeChild(a)
       toast.success(t('settings.operations.dataBackup.exportSuccess'))
     } catch (error: any) {
-      toast.error(error.message || t('settings.operations.dataBackup.exportFailed'))
+      const msg = error?.response?.data?.message || error.message || t('settings.operations.dataBackup.exportFailed')
+      toast.error(msg)
     } finally {
       setExporting(false)
     }
@@ -71,24 +68,28 @@ export function DataBackupSection() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const response = await fetch('/api/data-export/import', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
+      const response = await api.post('/api/data-export/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.message || '导入失败')
-      }
-      toast.success(
-        `${t('settings.operations.dataBackup.importSuccess')}: ${data.details?.channels || ''} ${data.details?.tokens || ''} ${data.details?.users || ''} ${data.details?.models || ''} ${data.details?.system_config || ''}`
-      )
-      // 清空文件选择
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+      const data = response.data
+      if (data.success) {
+        const parts = [
+          data.details?.channels || '',
+          data.details?.tokens || '',
+          data.details?.users || '',
+          data.details?.models || '',
+          data.details?.system_config || '',
+        ].filter(Boolean).join('，')
+        toast.success(`${t('settings.operations.dataBackup.importSuccess')}${parts ? '：' + parts : ''}`)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      } else {
+        toast.error(data.message || t('settings.operations.dataBackup.importFailed'))
       }
     } catch (error: any) {
-      toast.error(error.message || t('settings.operations.dataBackup.importFailed'))
+      const msg = error?.response?.data?.message || error.message || t('settings.operations.dataBackup.importFailed')
+      toast.error(msg)
     } finally {
       setImporting(false)
     }
