@@ -1,0 +1,68 @@
+name: Build NewAPI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Build binary
+      run: |
+        CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o new-api main.go
+        ls -lh new-api
+        file new-api
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: new-api-binary
+        path: new-api
+        retention-days: 30
+        
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        body: |
+          NewAPI build with data export/import feature
+          
+          ## Features
+          - Data export/import for root user
+          - Channel management
+          - Token management
+          - User management
+          
+          ## Usage
+          Download the binary and run it directly, or use the Dockerfile to deploy.
+        files: new-api
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
