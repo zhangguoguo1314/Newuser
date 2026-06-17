@@ -20,6 +20,11 @@ jobs:
       with:
         go-version: '1.21'
         
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
@@ -28,9 +33,43 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
           
-    - name: Download dependencies
+    - name: Cache Node modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          web/classic/node_modules
+          web/default/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('web/**/package-lock.json', 'web/**/bun.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+          
+    - name: Download Go dependencies
       run: go mod download
       
+    - name: Build Classic Frontend
+      run: |
+        cd web/classic
+        if [ -f "bun.lock" ]; then
+          npm install -g bun
+          bun install
+          bun run build
+        else
+          npm install
+          npm run build
+        fi
+        
+    - name: Build Default Frontend
+      run: |
+        cd web/default
+        if [ -f "bun.lock" ]; then
+          npm install -g bun
+          bun install
+          bun run build
+        else
+          npm install
+          npm run build
+        fi
+        
     - name: Build binary
       run: |
         CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o new-api main.go
