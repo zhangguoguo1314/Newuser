@@ -7,7 +7,7 @@ Data Backup & Restore component for Classic theme
 import React, { useRef, useState } from 'react';
 import { Card, Button, Spin, Toast } from '@douyinfe/semi-ui';
 import { IconDownload, IconUpload } from '@douyinfe/semi-icons';
-import { API, showError, showSuccess } from '../../helpers';
+import { API, showError, showSuccess } from '../../../helpers';
 
 const SettingsDataBackup = () => {
   const fileInputRef = useRef(null);
