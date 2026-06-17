@@ -20,11 +20,9 @@ jobs:
       with:
         go-version: '1.26'
         
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
@@ -33,46 +31,37 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
           
-    - name: Cache Node modules
+    - name: Cache Bun modules
       uses: actions/cache@v3
       with:
         path: |
+          ~/.bun/install/cache
           web/classic/node_modules
           web/default/node_modules
-        key: ${{ runner.os }}-node-${{ hashFiles('web/**/package-lock.json', 'web/**/bun.lock') }}
+        key: ${{ runner.os }}-bun-${{ hashFiles('web/**/bun.lock') }}
         restore-keys: |
-          ${{ runner.os }}-node-
+          ${{ runner.os }}-bun-
           
     - name: Download Go dependencies
       run: go mod download
       
     - name: Build Classic Frontend
       run: |
-        cd web/classic
-        if [ -f "bun.lock" ]; then
-          npm install -g bun
-          bun install
-          bun run build
-        else
-          npm install
-          npm run build
-        fi
+        cd web
+        bun install --frozen-lockfile
+        cd classic
+        bun run build
         
     - name: Build Default Frontend
       run: |
-        cd web/default
-        if [ -f "bun.lock" ]; then
-          npm install -g bun
-          bun install
-          bun run build
-        else
-          npm install
-          npm run build
-        fi
+        cd web
+        bun install --frozen-lockfile
+        cd default
+        bun run build
         
     - name: Build binary
       run: |
-        CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o new-api main.go
+        CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o new-api main.go
         ls -lh new-api
         file new-api
         
@@ -97,9 +86,6 @@ jobs:
           - Channel management
           - Token management
           - User management
-          
-          ## Usage
-          Download the binary and run it directly, or use the Dockerfile to deploy.
         files: new-api
         draft: false
         prerelease: false
