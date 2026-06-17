@@ -64,31 +64,12 @@ type ImportFile struct {
 
 // ExportAllData 导出所有数据为分类清晰的 JSON 文件
 func ExportAllData(c *gin.Context) {
-	// 1. 权限验证
+	// 1. 获取当前用户名（RootAuth 中间件已验证权限）
 	user := c.GetString("username")
 	if user == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
 			"message": "未登录",
-		})
-		return
-	}
-
-	// 使用 ValidateAndFill 验证并获取用户信息
-	userObj := model.User{Username: user}
-	err := userObj.ValidateAndFill()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "获取用户信息失败",
-		})
-		return
-	}
-
-	if userObj.Role != common.RoleRootUser {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": "只有 root 用户可以导出数据",
 		})
 		return
 	}
@@ -236,31 +217,12 @@ func ExportAllData(c *gin.Context) {
 
 // ImportAllData 导入 JSON 文件，一键恢复所有数据
 func ImportAllData(c *gin.Context) {
-	// 1. 权限验证
+	// 1. 获取当前用户名（RootAuth 中间件已验证权限）
 	user := c.GetString("username")
 	if user == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
 			"message": "未登录",
-		})
-		return
-	}
-
-	// 使用 ValidateAndFill 验证并获取用户信息
-	userObj := model.User{Username: user}
-	err := userObj.ValidateAndFill()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "获取用户信息失败",
-		})
-		return
-	}
-
-	if userObj.Role != common.RoleRootUser {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": "只有 root 用户可以导入数据",
 		})
 		return
 	}
