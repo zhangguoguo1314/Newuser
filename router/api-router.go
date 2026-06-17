@@ -368,6 +368,14 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 
+		// Data export and import (root only)
+		dataExportRoute := apiRouter.Group("/data-export")
+		dataExportRoute.Use(middleware.RootAuth())
+		{
+			dataExportRoute.GET("/export", controller.ExportAllData)
+			dataExportRoute.POST("/import", controller.ImportAllData)
+		}
+
 		// Deployments (model deployment management)
 		deploymentsRoute := apiRouter.Group("/deployments")
 		deploymentsRoute.Use(middleware.AdminAuth())
