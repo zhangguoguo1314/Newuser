@@ -5,6 +5,7 @@ colorFrom: blue
 colorTo: green
 sdk: docker
 app_port: 7860
+pinned: false
 ---
 
 # NewAPI - 带数据导入导出功能
