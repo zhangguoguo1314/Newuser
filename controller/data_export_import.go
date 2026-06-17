@@ -93,7 +93,24 @@ func ExportAllData(c *gin.Context) {
 		return
 	}
 
-	// 2. 逐项导出数据
+	// 2. 解析导出选项（支持选择性导出）
+	// 前端通过 query 参数指定要导出的数据类型，默认全部导出
+	exportChannels := c.DefaultQuery("channels", "true") == "true"
+	exportTokens := c.DefaultQuery("tokens", "true") == "true"
+	exportUsers := c.DefaultQuery("users", "true") == "true"
+	exportModels := c.DefaultQuery("models", "true") == "true"
+	exportConfig := c.DefaultQuery("config", "true") == "true"
+
+	// 如果什么都没选，返回错误
+	if !exportChannels && !exportTokens && !exportUsers && !exportModels && !exportConfig {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请至少选择一项要导出的数据",
+		})
+		return
+	}
+
+	// 3. 逐项导出数据
 	exportFile := ExportFile{}
 
 	// 填充文件头
@@ -103,91 +120,101 @@ func ExportAllData(c *gin.Context) {
 	exportFile.Meta.ExportedBy = user
 
 	// --- 渠道数据 ---
-	channels, err := model.GetAllChannels(0, 0, true, false)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "导出渠道数据失败: " + err.Error(),
-		})
-		return
+	if exportChannels {
+		channels, err := model.GetAllChannels(0, 0, true, false)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "导出渠道数据失败: " + err.Error(),
+			})
+			return
+		}
+		exportFile.Channels = Section{
+			Title:       "渠道配置 (Channels)",
+			Description: "所有 API 渠道的配置信息，包括上游 API 地址、密钥、模型列表、模型映射等",
+			Count:       len(channels),
+			Data:        channels,
+		}
+		exportFile.Meta.TotalItems += len(channels)
 	}
-	exportFile.Channels = Section{
-		Title:       "渠道配置 (Channels)",
-		Description: "所有 API 渠道的配置信息，包括上游 API 地址、密钥、模型列表、模型映射等",
-		Count:       len(channels),
-		Data:        channels,
-	}
-	exportFile.Meta.TotalItems += len(channels)
 
 	// --- 令牌数据 ---
-	var tokens []*model.Token
-	err = model.DB.Find(&tokens).Error
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "导出令牌数据失败: " + err.Error(),
-		})
-		return
+	if exportTokens {
+		var tokens []*model.Token
+		err = model.DB.Find(&tokens).Error
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "导出令牌数据失败: " + err.Error(),
+			})
+			return
+		}
+		exportFile.Tokens = Section{
+			Title:       "令牌配置 (Tokens)",
+			Description: "所有 API 令牌的配置信息，包括额度限制、模型限制、IP 限制、分组等",
+			Count:       len(tokens),
+			Data:        tokens,
+		}
+		exportFile.Meta.TotalItems += len(tokens)
 	}
-	exportFile.Tokens = Section{
-		Title:       "令牌配置 (Tokens)",
-		Description: "所有 API 令牌的配置信息，包括额度限制、模型限制、IP 限制、分组等",
-		Count:       len(tokens),
-		Data:        tokens,
-	}
-	exportFile.Meta.TotalItems += len(tokens)
 
 	// --- 用户数据 ---
-	pageInfo := &common.PageInfo{Page: 0, PageSize: 0}
-	users, _, err := model.GetAllUsers(pageInfo)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "导出用户数据失败: " + err.Error(),
-		})
-		return
+	if exportUsers {
+		pageInfo := &common.PageInfo{Page: 0, PageSize: 0}
+		users, _, err := model.GetAllUsers(pageInfo)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "导出用户数据失败: " + err.Error(),
+			})
+			return
+		}
+		exportFile.Users = Section{
+			Title:       "用户数据 (Users)",
+			Description: "所有用户的基本信息，包括用户名、角色、额度、分组等（密码已脱敏）",
+			Count:       len(users),
+			Data:        users,
+		}
+		exportFile.Meta.TotalItems += len(users)
 	}
-	exportFile.Users = Section{
-		Title:       "用户数据 (Users)",
-		Description: "所有用户的基本信息，包括用户名、角色、额度、分组等（密码已脱敏）",
-		Count:       len(users),
-		Data:        users,
-	}
-	exportFile.Meta.TotalItems += len(users)
 
 	// --- 模型配置 ---
-	models, err := model.GetAllModels(0, 0)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "导出模型配置失败: " + err.Error(),
-		})
-		return
+	if exportModels {
+		models, err := model.GetAllModels(0, 0)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "导出模型配置失败: " + err.Error(),
+			})
+			return
+		}
+		exportFile.Models = Section{
+			Title:       "模型配置 (Models)",
+			Description: "所有模型的配置信息，包括模型名称、描述、标签、状态、绑定渠道等",
+			Count:       len(models),
+			Data:        models,
+		}
+		exportFile.Meta.TotalItems += len(models)
 	}
-	exportFile.Models = Section{
-		Title:       "模型配置 (Models)",
-		Description: "所有模型的配置信息，包括模型名称、描述、标签、状态、绑定渠道等",
-		Count:       len(models),
-		Data:        models,
-	}
-	exportFile.Meta.TotalItems += len(models)
 
 	// --- 系统设置 ---
-	options, err := model.AllOption()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "导出系统设置失败: " + err.Error(),
-		})
-		return
+	if exportConfig {
+		options, err := model.AllOption()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "导出系统设置失败: " + err.Error(),
+			})
+			return
+		}
+		exportFile.SystemConfig = Section{
+			Title:       "系统设置 (System Config)",
+			Description: "所有系统配置项，包括注册设置、邮件设置、支付设置、界面设置等",
+			Count:       len(options),
+			Data:        options,
+		}
+		exportFile.Meta.TotalItems += len(options)
 	}
-	exportFile.SystemConfig = Section{
-		Title:       "系统设置 (System Config)",
-		Description: "所有系统配置项，包括注册设置、邮件设置、支付设置、界面设置等",
-		Count:       len(options),
-		Data:        options,
-	}
-	exportFile.Meta.TotalItems += len(options)
 
 	// 3. 生成文件并下载
 	filename := fmt.Sprintf("newapi_backup_%s.json", time.Now().Format("20060102_150405"))

@@ -23,19 +23,59 @@ import { Download, Upload } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { SettingsSection } from '../components/settings-section'
+
+type ExportOption = {
+  key: string
+  labelKey: string
+  defaultChecked: boolean
+}
+
+const EXPORT_OPTIONS: ExportOption[] = [
+  { key: 'channels', labelKey: 'settings.operations.dataBackup.optChannels', defaultChecked: true },
+  { key: 'tokens', labelKey: 'settings.operations.dataBackup.optTokens', defaultChecked: true },
+  { key: 'users', labelKey: 'settings.operations.dataBackup.optUsers', defaultChecked: true },
+  { key: 'models', labelKey: 'settings.operations.dataBackup.optModels', defaultChecked: true },
+  { key: 'config', labelKey: 'settings.operations.dataBackup.optConfig', defaultChecked: true },
+]
 
 export function DataBackupSection() {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportSelections, setExportSelections] = useState<Record<string, boolean>>(
+    Object.fromEntries(EXPORT_OPTIONS.map((o) => [o.key, o.defaultChecked]))
+  )
+
+  const toggleExportOption = (key: string) => {
+    setExportSelections((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const selectAll = () => {
+    const allSelected = EXPORT_OPTIONS.every((o) => exportSelections[o.key])
+    const newValue = !allSelected
+    setExportSelections(Object.fromEntries(EXPORT_OPTIONS.map((o) => [o.key, newValue])))
+  }
+
+  const isAllSelected = EXPORT_OPTIONS.every((o) => exportSelections[o.key])
+  const hasAnySelection = EXPORT_OPTIONS.some((o) => exportSelections[o.key])
 
   // 导出数据
   const handleExport = async () => {
+    if (!hasAnySelection) {
+      toast.error(t('settings.operations.dataBackup.selectAtLeastOne'))
+      return
+    }
     setExporting(true)
     try {
-      const response = await api.get('/api/data-export/export', {
+      const params = new URLSearchParams()
+      EXPORT_OPTIONS.forEach((o) => {
+        params.set(o.key, exportSelections[o.key] ? 'true' : 'false')
+      })
+      const response = await api.get(`/api/data-export/export?${params.toString()}`, {
         responseType: 'blob',
       })
       const blob = new Blob([response.data], { type: 'application/json' })
@@ -79,8 +119,8 @@ export function DataBackupSection() {
           data.details?.users || '',
           data.details?.models || '',
           data.details?.system_config || '',
-        ].filter(Boolean).join('，')
-        toast.success(`${t('settings.operations.dataBackup.importSuccess')}${parts ? '：' + parts : ''}`)
+        ].filter(Boolean).join(', ')
+        toast.success(`${t('settings.operations.dataBackup.importSuccess')}${parts ? ': ' + parts : ''}`)
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
         }
@@ -110,7 +150,34 @@ export function DataBackupSection() {
             <p className="mb-4 text-sm text-muted-foreground">
               {t('settings.operations.dataBackup.exportDescription')}
             </p>
-            <Button onClick={handleExport} disabled={exporting}>
+            {/* 选择导出项 */}
+            <div className="mb-4 space-y-2 rounded-md border p-3">
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Checkbox
+                  id="export-select-all"
+                  checked={isAllSelected}
+                  onCheckedChange={selectAll}
+                />
+                <Label htmlFor="export-select-all" className="text-sm font-medium cursor-pointer">
+                  {t('settings.operations.dataBackup.selectAll')}
+                </Label>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {EXPORT_OPTIONS.map((option) => (
+                  <div key={option.key} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`export-${option.key}`}
+                      checked={exportSelections[option.key]}
+                      onCheckedChange={() => toggleExportOption(option.key)}
+                    />
+                    <Label htmlFor={`export-${option.key}`} className="text-sm cursor-pointer">
+                      {t(option.labelKey)}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Button onClick={handleExport} disabled={exporting || !hasAnySelection}>
               <Download className="mr-2 h-4 w-4" />
               {exporting
                 ? t('settings.operations.dataBackup.exporting')
