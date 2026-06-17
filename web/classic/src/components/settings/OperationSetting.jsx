@@ -27,6 +27,7 @@ import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
 import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
+import SettingsDataBackup from '../../pages/Setting/Operation/SettingsDataBackup';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -153,6 +154,10 @@ const OperationSetting = () => {
         {/* 签到设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCheckin options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 数据备份与恢复 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsDataBackup />
         </Card>
       </Spin>
     </>
