@@ -122,8 +122,7 @@ func ExportAllData(c *gin.Context) {
 	// --- 令牌数据 ---
 	if exportTokens {
 		var tokens []*model.Token
-		err = model.DB.Find(&tokens).Error
-		if err != nil {
+		if err := model.DB.Find(&tokens).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"message": "导出令牌数据失败: " + err.Error(),
